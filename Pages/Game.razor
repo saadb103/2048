@@ -1,0 +1,256 @@
+@page "/"
+
+@using TZFE.Game
+
+<style>
+    .board {
+        --grid-size : @Grid.GridSize;
+        --cell-size : @Grid.CellSize;
+        --cell-gap : @Grid.CellGap;
+    }
+    .main {
+       background-color: #faf8ef;
+    }
+</style>
+
+<div class="game-header">
+    <div>2048</div>
+    <div class="game-lost">@(isGameLost ? "Game Over" : "")</div>
+    <div class="game-score-container">
+         <div class="game-score">
+             <p>Score: @currentScore</p>
+         </div>
+         <div class="new-game" @onclick="@NewGame">New Game</div>
+    </div>
+</div>
+
+<div class="game-container" tabindex="0" @onkeydown="HandleInput">
+    @* <div class="instructions">
+        <h3>Instructions</h3>
+        <ul>
+            <li>Use your arrow keys to move the tiles.</li>
+            <li>Tiles with the same numbers will merge into 1.</li>
+            <li>Add them up until you reach 2048 and win the game!</li>
+        </ul>
+    </div> *@
+    <div class="board">
+        @for(int i = 0; i < Grid.Cells.Count; i++)
+        {
+            <div class="cell"></div>
+        }
+        @foreach(Cell cell in Grid.Cells)
+        {
+            @if (cell.Tile != null)
+            {
+                <div @key="@cell.Tile" class="tile @GetValueNumberClass(cell.Tile.ValueNumber)" style="--x:@cell.Tile.X; --y:@cell.Tile.Y">@cell.Tile.ValueNumber</div>
+            }
+        }
+    </div>
+</div>
+
+@code {
+    public Grid Grid { get; set; } = new();
+    public int currentScore { get; set; } = 0;
+    public bool isGameLost { get; set; } = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        Grid.GetRandomEmptyCell().Tile = new Tile();
+        Grid.GetRandomEmptyCell().Tile = new Tile();
+    }
+
+    public void HandleInput(KeyboardEventArgs k)
+    {
+        switch (k.Key)
+        {
+            case "ArrowUp":
+                if (!CanMoveUp()) return;
+                MoveUp();
+                break;
+            case "ArrowDown":
+                if (!CanMoveDown()) return;
+                MoveDown();
+                break;
+            case "ArrowLeft":
+                if (!CanMoveLeft()) return;
+                MoveLeft();
+                break;
+            case "ArrowRight":
+                if (!CanMoveRight()) return;
+                MoveRight();
+                break;
+            default:
+                break;
+        }
+
+        Grid.Cells.ForEach(cell => cell.MergeTiles());
+        Tile newTile = new Tile();
+        Grid.GetRandomEmptyCell().Tile = newTile;
+
+        currentScore = GetCurrentScore();
+
+        if (!CanMoveUp() && !CanMoveDown() && !CanMoveLeft() && !CanMoveRight())
+        {
+            isGameLost = true;
+            return;
+        }
+    }
+    public void MoveUp()
+    {
+        SlideTiles(Grid.GetCellsByColumn());
+    }
+
+    public void MoveDown()
+    {
+        SlideTiles(ReverseList(Grid.GetCellsByColumn()));
+    }
+
+    public void MoveLeft()
+    {
+        SlideTiles(Grid.GetCellsByRow());
+    }
+
+    public void MoveRight()
+    {
+        SlideTiles(ReverseList(Grid.GetCellsByRow()));
+    }
+
+    public bool CanMoveUp()
+    {
+        bool canMoveUp = CanMove(Grid.GetCellsByColumn());
+        return canMoveUp;
+    }
+
+    public bool CanMoveDown()
+    {
+        bool canMoveDown = CanMove(ReverseList(Grid.GetCellsByColumn()));
+        return canMoveDown;
+    }
+
+    public bool CanMoveLeft()
+    {
+        bool canMoveLeft = CanMove(Grid.GetCellsByRow());
+        return canMoveLeft;
+    }
+
+    public bool CanMoveRight()
+    {
+        bool canMoveRight = CanMove(ReverseList(Grid.GetCellsByRow()));
+        return canMoveRight;
+    }
+
+    public int GetCurrentScore()
+    {
+        return Grid.Cells.Aggregate(0, (score, cell) =>
+        {
+            if (cell.Tile != null)
+            {
+                return score + cell.Tile.ValueNumber;
+            }
+            else
+            {
+                return score;
+            }
+        });
+    }
+
+    public void NewGame()
+    {
+        Grid = new Grid();
+        Grid.GetRandomEmptyCell().Tile = new Tile();
+        Grid.GetRandomEmptyCell().Tile = new Tile();
+        isGameLost = false;
+        currentScore = GetCurrentScore();
+    }
+
+    public string GetValueNumberClass(int value)
+    {
+        Dictionary<int, string> ValueMapping = new()
+            {
+                { 2, "two" },
+                { 4, "four" },
+                { 8, "eight" },
+                { 16, "six-teen" },
+                { 32, "thirty-two" },
+                { 64, "sixty-four" },
+                { 128, "one-hundred-twenty-eight" },
+                { 256, "two-hundred-fifty-six" },
+                { 512, "five-hundred-twelve" },
+                { 1024, "one-thousand-twenty-four" },
+                { 2048, "two-thousand-forty-eight" },
+            };
+        return ValueMapping.GetValueOrDefault(value);
+    }
+
+    public void SlideTiles(List<List<Cell>> cells)
+        {
+            cells.ForEach(group =>
+            {
+                for (int i = 1; i < group.Count; i++)
+                {
+                    Cell cell = group[i];
+
+                    if (cell.Tile == null) continue;
+
+                    Cell lastValidCell = null;
+                    for (int j = i - 1; j >= 0; j--)
+                    {
+                        Cell moveToCell = group[j];
+
+                        if (!moveToCell.CanAcceptMerging(cell.Tile)) break;
+
+                        lastValidCell = moveToCell;
+                    }
+
+                    if (lastValidCell != null)
+                    {
+                        if (lastValidCell.Tile != null)
+                        {
+                            lastValidCell.MergingTile = cell.Tile;
+                        }
+                        else
+                        {
+                            lastValidCell.Tile = cell.Tile;
+                        }
+
+                        cell.Tile = null;
+                    }
+                }
+            });
+        }
+
+        public bool CanMove(List<List<Cell>> cells)
+        {
+            for (int i = 0; i < cells.Count; i++)
+            {
+                for (int j = 0; j < cells[i].Count; j++)
+                {
+                    if (j == 0) continue;
+
+                    if (cells[i][j].Tile == null) continue;
+
+                    Cell moveToCell = cells[i][j - 1];
+                    if (moveToCell.CanAcceptMerging(cells[i][j].Tile)) return true;
+                }
+            }
+
+            return false;
+        }
+
+        public List<List<Cell>> ReverseList(List<List<Cell>> original)
+        {
+            List<List<Cell>> reversedList = new();
+
+            for (int i = 0; i < original.Count; i++)
+            {
+                reversedList.Insert(i, new List<Cell>());
+
+                for (int j = 0; j < original[i].Count; j++)
+                {
+                    reversedList[i].Insert(j, original[i][original[i].Count - j - 1]);
+                }
+            }
+
+            return reversedList;
+        }
+}
