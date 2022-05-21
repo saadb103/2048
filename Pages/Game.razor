@@ -38,25 +38,25 @@
         {
             <div class="cell"></div>
         }
-        @foreach(Cell cell in Grid.Cells)
+        @foreach(Tile tile in TilesOnBoard)
         {
-            @if (cell.Tile != null)
-            {
-                <div @key="@cell.Tile" class="tile @GetValueNumberClass(cell.Tile.ValueNumber)" style="--x:@cell.Tile.X; --y:@cell.Tile.Y">@cell.Tile.ValueNumber</div>
-            }
+            <div @key="@tile" class="tile @GetValueNumberClass(tile.ValueNumber)" style="--x:@tile.X; --y:@tile.Y">@tile.ValueNumber</div>
         }
     </div>
 </div>
 
 @code {
     public Grid Grid { get; set; } = new();
+    public List<Tile> TilesOnBoard {get; set;} = new List<Tile>();
     public int currentScore { get; set; } = 0;
     public bool isGameLost { get; set; } = false;
 
     protected override async Task OnInitializedAsync()
     {
-        Grid.GetRandomEmptyCell().Tile = new Tile();
-        Grid.GetRandomEmptyCell().Tile = new Tile();
+        @* Grid.GetRandomEmptyCell().Tile = new Tile();
+        Grid.GetRandomEmptyCell().Tile = new Tile(); *@
+
+        NewGame();
     }
 
     public void HandleInput(KeyboardEventArgs k)
@@ -83,9 +83,20 @@
                 break;
         }
 
+        Grid.Cells.ForEach(cell => {
+            if (cell.Tile == null || cell.MergingTile == null) return;
+            TilesOnBoard.Remove(cell.MergingTile);
+        });
         Grid.Cells.ForEach(cell => cell.MergeTiles());
+        
+
+        @* Tile newTile = new Tile();
+        Grid.GetRandomEmptyCell().Tile = newTile; *@
+
         Tile newTile = new Tile();
-        Grid.GetRandomEmptyCell().Tile = newTile;
+        Cell newCell = Grid.GetRandomEmptyCell();
+        newCell.Tile = newTile;
+        TilesOnBoard.Add(newCell.Tile);
 
         currentScore = GetCurrentScore();
 
@@ -157,8 +168,16 @@
     public void NewGame()
     {
         Grid = new Grid();
-        Grid.GetRandomEmptyCell().Tile = new Tile();
-        Grid.GetRandomEmptyCell().Tile = new Tile();
+        TilesOnBoard.RemoveAll(tile => true);
+
+        Cell firstInitialCell = Grid.GetRandomEmptyCell();        
+        firstInitialCell.Tile = new Tile();
+        TilesOnBoard.Add(firstInitialCell.Tile);
+
+        Cell secondInitialCell = Grid.GetRandomEmptyCell();        
+        secondInitialCell.Tile = new Tile();
+        TilesOnBoard.Add(secondInitialCell.Tile);
+
         isGameLost = false;
         currentScore = GetCurrentScore();
     }

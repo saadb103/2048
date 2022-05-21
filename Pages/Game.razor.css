@@ -34,10 +34,10 @@
     border-radius: 1vmin;
     font-weight: bold;
     font-size: 50px;
-    /* animation: show 200ms ease-in-out; */
-    animation: show 2s ease-in-out;
-    /* transition: 100ms ease-in-out; */
-    transition: 2s ease-in-out;
+    animation: show 250ms ease-in-out;
+    /* animation: show 2s ease-in-out; */
+    transition: 150ms ease-in-out;
+    /* transition: 2s ease-in-out; */
     color: #776e65;
     font-family: sans-serif;
 }
