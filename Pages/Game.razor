@@ -24,7 +24,7 @@
     </div>
 </div>
 
-<div class="game-container" tabindex="0" @onkeydown="HandleInput">
+<div class="game-container" tabindex="0" @onkeydown="HandleInput" @ontouchstart="HandleTouchStart" @ontouchend="HandleTouchEnd">
     @* <div class="instructions">
         <h3>Instructions</h3>
         <ul>
@@ -50,6 +50,7 @@
     public List<Tile> TilesOnBoard {get; set;} = new List<Tile>();
     public int currentScore { get; set; } = 0;
     public bool isGameLost { get; set; } = false;
+    public List<double> TouchCoordinates = new List<double>();
 
     protected override async Task OnInitializedAsync()
     {
@@ -80,32 +81,57 @@
                 MoveRight();
                 break;
             default:
-                break;
+                return;
         }
 
-        Grid.Cells.ForEach(cell => {
-            if (cell.Tile == null || cell.MergingTile == null) return;
-            TilesOnBoard.Remove(cell.MergingTile);
-        });
-        Grid.Cells.ForEach(cell => cell.MergeTiles());
-        
+        HandleMergeAndCreate();
+    }
 
-        @* Tile newTile = new Tile();
-        Grid.GetRandomEmptyCell().Tile = newTile; *@
-
-        Tile newTile = new Tile();
-        Cell newCell = Grid.GetRandomEmptyCell();
-        newCell.Tile = newTile;
-        TilesOnBoard.Add(newCell.Tile);
-
-        currentScore = GetCurrentScore();
-
-        if (!CanMoveUp() && !CanMoveDown() && !CanMoveLeft() && !CanMoveRight())
-        {
-            isGameLost = true;
-            return;
+    public void HandleTouchStart(TouchEventArgs t)
+    {
+        if(t.Touches != null) {
+            TouchCoordinates.Insert(0, t.Touches[0].ClientX);
+            TouchCoordinates.Insert(1, t.Touches[0].ClientY);
         }
     }
+
+    public void HandleTouchEnd(TouchEventArgs t)
+    {
+        if(t.ChangedTouches != null) {
+            TouchCoordinates.Insert(2, t.ChangedTouches[0].ClientX);
+            TouchCoordinates.Insert(3, t.ChangedTouches[0].ClientY);
+        }
+
+        HandleSwipe();
+    }
+
+    public void HandleSwipe()
+    {
+        double slope = (TouchCoordinates[3] - TouchCoordinates[1]) / (TouchCoordinates[2] - TouchCoordinates[0]);
+        double angleRadians = Math.Atan(slope);
+        double angleDegrees = (180 / Math.PI) * angleRadians;
+        bool isSwipeRight = (TouchCoordinates[2] - TouchCoordinates[0]) >= 0;
+        bool isSwipeUp = (TouchCoordinates[1] - TouchCoordinates[3]) >= 0;
+
+        if((angleDegrees < 30 && angleDegrees > -30) && (isSwipeRight)) {
+            if (!CanMoveRight()) return;
+            MoveRight();
+        } else if(((angleDegrees < -70 && angleDegrees >= -90) || (angleDegrees > 70 && angleDegrees <= 90)) && (isSwipeUp)) {
+            if (!CanMoveUp()) return;
+            MoveUp();
+        } else if((angleDegrees < 30 && angleDegrees > -30) && (!isSwipeRight)) {
+            if (!CanMoveLeft()) return;
+            MoveLeft();
+        } else if(((angleDegrees < -70 && angleDegrees >= -90) || (angleDegrees > 70 && angleDegrees <= 90)) && (!isSwipeUp)) {
+            if (!CanMoveDown()) return;
+            MoveDown();
+        } else {
+            return;
+        }
+
+        HandleMergeAndCreate();
+    }
+
     public void MoveUp()
     {
         SlideTiles(Grid.GetCellsByColumn());
@@ -148,6 +174,32 @@
     {
         bool canMoveRight = CanMove(ReverseList(Grid.GetCellsByRow()));
         return canMoveRight;
+    }
+
+    public void HandleMergeAndCreate()
+    {
+        Grid.Cells.ForEach(cell => {
+            if (cell.Tile == null || cell.MergingTile == null) return;
+            TilesOnBoard.Remove(cell.MergingTile);
+        });
+
+        Grid.Cells.ForEach(cell => cell.MergeTiles());
+
+        @* Tile newTile = new Tile();
+        Grid.GetRandomEmptyCell().Tile = newTile; *@
+
+        Tile newTile = new Tile();
+        Cell newCell = Grid.GetRandomEmptyCell();
+        newCell.Tile = newTile;
+        TilesOnBoard.Add(newCell.Tile);
+
+        currentScore = GetCurrentScore();
+
+        if (!CanMoveUp() && !CanMoveDown() && !CanMoveLeft() && !CanMoveRight())
+        {
+            isGameLost = true;
+            return;
+        }
     }
 
     public int GetCurrentScore()
